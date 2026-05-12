@@ -1,0 +1,12 @@
+# Dependencies
+**/node_modules
+**/dist
+**/.env
+
+# OS logs
+.DS_Store
+Thumbs.db
+
+# IDE settings
+.vscode/
+.idea/
