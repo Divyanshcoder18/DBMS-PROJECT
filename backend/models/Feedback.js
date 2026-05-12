@@ -6,9 +6,9 @@ const feedbackSchema = new mongoose.Schema({
     ref: 'User',
     required: true,
   },
-  mealType: {
-    type: String,
-    enum: ['Breakfast', 'Lunch', 'Snacks', 'Dinner'],
+  menu: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Menu',
     required: true,
   },
   rating: {

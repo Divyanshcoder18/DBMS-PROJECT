@@ -1,13 +1,12 @@
 const Feedback = require('../models/Feedback');
+const Menu = require('../models/Menu');
 
-// @desc    Create new feedback
-// @route   POST /api/feedback
 exports.createFeedback = async (req, res) => {
-  const { mealType, rating, comments } = req.body;
+  const { menuId, rating, comments } = req.body;
   try {
     const feedback = new Feedback({
       user: req.user._id,
-      mealType,
+      menu: menuId,
       rating,
       comments,
     });
@@ -18,19 +17,27 @@ exports.createFeedback = async (req, res) => {
   }
 };
 
-// @desc    Get all feedbacks with stats (Admin only)
-// @route   GET /api/feedback
 exports.getAllFeedback = async (req, res) => {
   try {
     const feedbacks = await Feedback.find({})
       .populate('user', 'name email')
+      .populate('menu', 'mealType items date')
       .sort({ createdAt: -1 });
     
-    // Basic aggregation for metrics
+    // Updated aggregation to join the menu collection
     const aggregation = await Feedback.aggregate([
       {
+        $lookup: {
+          from: 'menus',
+          localField: 'menu',
+          foreignField: '_id',
+          as: 'menuDetails'
+        }
+      },
+      { $unwind: '$menuDetails' },
+      {
         $group: {
-          _id: '$mealType',
+          _id: '$menuDetails.mealType',
           averageRating: { $avg: '$rating' },
           count: { $sum: 1 }
         }
