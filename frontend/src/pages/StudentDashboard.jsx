@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { PlusCircle, ClipboardList, Star } from 'lucide-react';
+import { PlusCircle, ClipboardList, Star, Ticket, QrCode, MapPin, Calendar } from 'lucide-react';
 
 const StudentDashboard = () => {
   const { user, API_URL } = useAuth();
@@ -10,11 +10,18 @@ const StudentDashboard = () => {
   
   const [complaints, setComplaints] = useState([]);
   const [todaysMenu, setTodaysMenu] = useState([]);
+  const [outpasses, setOutpasses] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // Form states
   const [complaintForm, setComplaintForm] = useState({ title: '', description: '', category: 'Electricity' });
   const [feedbackForm, setFeedbackForm] = useState({ menuId: '', rating: 5, comments: '' });
+  const [outpassForm, setOutpassForm] = useState({
+    startDate: new Date().toISOString().split('T')[0],
+    endDate: new Date(Date.now() + 86400000).toISOString().split('T')[0],
+    destination: '',
+    reason: ''
+  });
   
   const [msg, setMsg] = useState(null);
 
@@ -22,12 +29,14 @@ const StudentDashboard = () => {
 
   const fetchMyData = async () => {
     try {
-      const [compRes, menuRes] = await Promise.all([
+      const [compRes, menuRes, outpassRes] = await Promise.all([
         axios.get(`${API_URL}/complaints/my`, config),
-        axios.get(`${API_URL}/menu`, config)
+        axios.get(`${API_URL}/menu`, config),
+        axios.get(`${API_URL}/outpass/my`, config)
       ]);
       setComplaints(compRes.data);
       setTodaysMenu(menuRes.data);
+      setOutpasses(outpassRes.data);
       
       // Auto-select first available menu if feedback form isn't preset
       if (menuRes.data.length > 0) {
@@ -65,8 +74,23 @@ const StudentDashboard = () => {
     } catch (err) { setMsg({ type: 'error', text: 'Failed to capture ratings.' }); }
   };
 
+  const submitOutpass = async (e) => {
+    e.preventDefault();
+    try {
+      await axios.post(`${API_URL}/outpass`, outpassForm, config);
+      setMsg({ type: 'success', text: 'Outpass requested! Awaiting Admin approval.' });
+      setOutpassForm({
+        startDate: new Date().toISOString().split('T')[0],
+        endDate: new Date(Date.now() + 86400000).toISOString().split('T')[0],
+        destination: '',
+        reason: ''
+      });
+      fetchMyData();
+    } catch (err) { setMsg({ type: 'error', text: 'Failed to submit outpass request.' }); }
+  };
+
   return (
-    <div className="container">
+    <div className="container" style={{ paddingBottom: '5rem' }}>
       <header style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3rem' }}>
         <div>
           <p style={{ color: 'var(--text-muted)' }}>Welcome Back,</p>
@@ -87,10 +111,11 @@ const StudentDashboard = () => {
         }}>{msg.text}</div>
       )}
 
-      <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem' }}>
-        <TabBtn active={activeTab === 'my_complaints'} onClick={() => setActiveTab('my_complaints')} ico={<ClipboardList size={18}/>} txt="View History" />
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', marginBottom: '2rem' }}>
+        <TabBtn active={activeTab === 'my_complaints'} onClick={() => setActiveTab('my_complaints')} ico={<ClipboardList size={18}/>} txt="History" />
         <TabBtn active={activeTab === 'lodge'} onClick={() => setActiveTab('lodge')} ico={<PlusCircle size={18}/>} txt="Lodge Issue" />
         <TabBtn active={activeTab === 'mess'} onClick={() => setActiveTab('mess')} ico={<Star size={18}/>} txt="Mess Rating" />
+        <TabBtn active={activeTab === 'outpass'} onClick={() => setActiveTab('outpass')} ico={<Ticket size={18}/>} txt="Leave & QR Outpass" />
       </div>
 
       <div className="glass-card">
@@ -184,6 +209,86 @@ const StudentDashboard = () => {
               </div>
             </motion.div>
           )}
+
+          {activeTab === 'outpass' && (
+            <motion.div key="4" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
+                <div>
+                  <h2 style={{ marginBottom: '1.5rem' }}>Request Gate Outpass / Leave</h2>
+                  <form onSubmit={submitOutpass} style={{ background: 'rgba(15,23,42,0.3)', padding: '1.5rem', borderRadius: '0.75rem', border: '1px solid var(--border)' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                      <div className="form-group">
+                        <label>Out Date</label>
+                        <input type="date" required value={outpassForm.startDate} onChange={e => setOutpassForm({...outpassForm, startDate: e.target.value})} />
+                      </div>
+                      <div className="form-group">
+                        <label>Return Date</label>
+                        <input type="date" required value={outpassForm.endDate} onChange={e => setOutpassForm({...outpassForm, endDate: e.target.value})} />
+                      </div>
+                    </div>
+                    <div className="form-group">
+                      <label>Destination</label>
+                      <input required value={outpassForm.destination} onChange={e => setOutpassForm({...outpassForm, destination: e.target.value})} placeholder="e.g., Parents Home, Market" />
+                    </div>
+                    <div className="form-group">
+                      <label>Reason</label>
+                      <textarea rows={2} required value={outpassForm.reason} onChange={e => setOutpassForm({...outpassForm, reason: e.target.value})} placeholder="Detailed reason for leave..."></textarea>
+                    </div>
+                    <button type="submit" className="btn btn-primary" style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem' }}>
+                      <Ticket size={16} /> Submit Leave Request
+                    </button>
+                  </form>
+                </div>
+
+                <div>
+                  <h2 style={{ marginBottom: '1.5rem' }}>Active Passes</h2>
+                  {loading ? <p>Loading passes...</p> : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxHeight: '450px', overflowY: 'auto', paddingRight: '0.5rem' }}>
+                      {outpasses.length === 0 ? (
+                        <p style={{ color: 'var(--text-muted)' }}>No active or pending leaves requested.</p>
+                      ) : outpasses.map(op => (
+                        <div key={op._id} style={{
+                          background: op.status === 'Approved' ? 'linear-gradient(135deg, rgba(99,102,241,0.15), rgba(0,0,0,0.3))' : 'rgba(255,255,255,0.03)',
+                          border: op.status === 'Approved' ? '1px solid var(--primary)' : '1px solid var(--border)',
+                          borderRadius: '0.75rem', padding: '1.25rem', position: 'relative', overflow: 'hidden'
+                        }}>
+                          {op.status === 'Approved' && <div style={{ position: 'absolute', right: '-20px', top: '10px', background: '#10b981', padding: '0.2rem 1.5rem', transform: 'rotate(45deg)', fontSize: '0.65rem', fontWeight: 800, color: '#fff' }}>VALID</div>}
+                          
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>#{op.passCode}</span>
+                            <span className={`badge ${op.status === 'Pending' ? 'badge-pending' : op.status === 'Approved' ? 'badge-resolved' : 'badge-progress'}`} style={{ background: op.status === 'Rejected' ? '#ef4444' : undefined }}>{op.status}</span>
+                          </div>
+
+                          {op.status === 'Approved' ? (
+                            <div style={{ display: 'flex', gap: '1rem', marginTop: '0.75rem', alignItems: 'center' }}>
+                              <div style={{ background: '#fff', padding: '6px', borderRadius: '6px', flexShrink: 0 }}>
+                                <img 
+                                  src={`https://api.qrserver.com/v1/create-qr-code/?size=90x90&color=0f172a&data=${encodeURIComponent(`PASS:${op.passCode}|STUDENT:${user.name}`)}`} 
+                                  alt="QR Code" 
+                                  style={{ display: 'block', width: '90px', height: '90px' }} 
+                                />
+                              </div>
+                              <div style={{ flex: 1 }}>
+                                <h4 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '0.25rem', color: '#fff' }}>Digital Gate Pass</h4>
+                                <p style={{ fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.3rem', margin: '0.2rem 0' }}><Calendar size={13}/> {new Date(op.startDate).toLocaleDateString()} to {new Date(op.endDate).toLocaleDateString()}</p>
+                                <p style={{ fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.3rem', margin: 0 }}><MapPin size={13}/> {op.destination}</p>
+                              </div>
+                            </div>
+                          ) : (
+                            <div>
+                              <h4 style={{ fontSize: '0.95rem', margin: '0.25rem 0' }}>Destination: {op.destination}</h4>
+                              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>{new Date(op.startDate).toLocaleDateString()} - {new Date(op.endDate).toLocaleDateString()}</p>
+                              <small style={{ fontStyle: 'italic', display: 'block' }}>"{op.reason}"</small>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          )}
         </AnimatePresence>
       </div>
     </div>
@@ -198,3 +303,4 @@ const TabBtn = ({ active, ico, txt, onClick }) => (
 );
 
 export default StudentDashboard;
+
